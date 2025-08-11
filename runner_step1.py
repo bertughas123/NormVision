@@ -28,6 +28,7 @@ if __name__ == "__main__":
     def get_amt(prefix):
         return format_amount(kv.get(f"{prefix}_value"), kv.get(f"{prefix}_currency"), kv.get(f"{prefix}_raw"))
 
+    # Çıktıyı göster
     print("• 2024 Ciro:", get_amt("ciro_2024"))
     print("• 2025 Ciro:", get_amt("ciro_2025"))
     print("• Q2 Hedef:", get_amt("q2_hedef"))
@@ -37,5 +38,11 @@ if __name__ == "__main__":
     print("• Rakip Firma Şartları:", kv.get("rakip_firma_sartlari") or "—")
     print("• Sipariş Alındı mı?:", kv.get("siparis_alindi_mi") or "—")
     print("• Yaklaşık Sipariş Tutarı:", get_amt("yaklasik_siparis_tutari"))
-    print("• Genel Yorum (ham):", kv.get("genel_yorum") or "—")
+
+    # DEBUG İÇİN GENEL YORUM GÖSTER
+    print("\n🔍 DEBUG: Genel Yorum HAM İÇERİK:")
+    print("=" * 80)
+    print(kv.get("genel_yorum") or "—")
+    print("=" * 80)
+
     print("• Özet:", kv.get("ozet") or "—")

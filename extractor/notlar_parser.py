@@ -123,9 +123,53 @@ def parse_notlar_kv(notlar_text: str) -> dict:
         else:
             kv["yaklasik_siparis_tutari_raw"] = "—"
     
-    # Genel Yorum
-    match = re.search(r'fi[rı]ma\s+hakkinda\s+genel\s+yorum\s*:\s*(.+)', notlar_text, re.IGNORECASE | re.DOTALL)
-    if match:
-        kv["genel_yorum"] = match.group(1).strip()
+    # Genel Yorum - bir sonraki başlığa kadar al
+    general_comment_match = re.search(r'F[İI]RMA\s+HAKKINDA\s+GENEL\s+YORUM\s*:\s*(.*)', notlar_text, re.IGNORECASE | re.DOTALL)
+    
+    if general_comment_match:
+        comment_start = general_comment_match.start(1)
+        
+        # Sonraki başlığı bul (büyük harfle başlayan ve ":" içeren, veya madde imi olan)
+        next_heading_patterns = [
+            r'\n\s*[A-ZĞÜŞİÖÇ][A-ZĞÜŞİÖÇ\s]+:', # Büyük harfli başlık
+            r'\n\s*MUTABAKAT\s+DURUMU', # Özel olarak bilinen sonraki başlık
+            r'\n\s*[•\-–]', # Madde imleri
+        ]
+        
+        # Her bir pattern için kontrol et
+        end_positions = []
+        for pattern in next_heading_patterns:
+            next_match = re.search(pattern, notlar_text[comment_start:], re.MULTILINE)
+            if next_match:
+                end_positions.append(next_match.start())
+        
+        # En yakın sonlandırıcıyı bul
+        if end_positions:
+            comment_end = comment_start + min(end_positions)
+            comment_text = notlar_text[comment_start:comment_end].strip()
+        else:
+            # Sonlandırıcı bulunamazsa metnin kalanını al
+            comment_text = notlar_text[comment_start:].strip()
+        
+        kv['genel_yorum'] = comment_text
+    
+    # Sipariş Alındı mı? ve Yaklaşık Sipariş Tutarı - iki alan birlikte yazılmış olabilir
+    order_match = re.search(r'S[İI]PAR[İI]Ş\s+ALINDI\s+M[İI]\?\s*(?:YAKLAŞIK\s+S[İI]PAR[İI]Ş\s+TUTARI\s*)?:\s*([^:]*?)(?=\n\s*[A-ZĞÜŞİÖÇ]|$)', notlar_text, re.IGNORECASE)
+    if order_match:
+        order_text = order_match.group(1).strip()
+        if order_text and order_text != "?":
+            kv['siparis_alindi_mi'] = order_text
+    
+    # Yaklaşık Sipariş Tutarı - ayrıca yazılmışsa
+    amount_match = re.search(r'YAKLAŞIK\s+S[İI]PAR[İI]Ş\s+TUTARI\s*:\s*([^:]*?)(?=\n\s*[A-ZĞÜŞİÖÇ]|$)', notlar_text, re.IGNORECASE)
+    if amount_match:
+        amount_text = amount_match.group(1).strip()
+        if amount_text and amount_text != "?":
+            raw_amount = amount_text
+            amount_value, amount_currency = parse_amount(raw_amount)
+            
+            kv['yaklasik_siparis_tutari_raw'] = raw_amount
+            kv['yaklasik_siparis_tutari_value'] = amount_value
+            kv['yaklasik_siparis_tutari_currency'] = amount_currency
     
     return kv
