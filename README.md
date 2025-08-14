@@ -1,32 +1,105 @@
-# PDF Data Extraction Project
+# NormVision
 
-Bu proje, PDF dosyalarından veri çıkarma ve işleme işlemlerini gerçekleştirmek için tasarlanmıştır.
+## Project Status
+**Note:** NormVision is currently in the development phase. Features and functionality are subject to change.
 
-## Dosya Yapısı
+## Overview
+NormVision is an intelligent document analysis system developed for Norm Holding to process, analyze and extract key business insights from visit reports. The system uses natural language processing and machine learning to transform unstructured PDF documents into structured data and actionable intelligence.
 
+## Key Features
+- PDF document parsing and text extraction
+- Automatic field extraction from visit reports
+- Intelligent data completion using Gemini AI
+- Campaign tracking and compliance monitoring
+- Turnover trend analysis and comparison
+- Visit summary generation with recommendations
+- Batch processing capability for multiple documents
+- Exports to CSV and formatted Markdown reports
+- Company-based grouping and chronological ordering
+
+## Project Structure
 ```
-project/
-├── extractor/
-│   ├── __init__.py
-│   ├── pdf_reader.py      # PDF okuma işlemleri
-│   ├── sections.py        # Bölüm ayırma işlemleri
-│   ├── normalize.py       # Veri normalleştirme
-│   ├── notlar_parser.py   # Notlar ayrıştırma
-│   ├── schema.py          # Veri şeması tanımları
-│   └── llm_fill.py        # LLM ile veri doldurma
-├── runner.py              # Ana çalıştırma scripti
-├── .env.example           # Çevre değişkenleri örneği
-└── README.md              # Bu dosya
+NormVision/
+│
+├── extractor/                      # Core extraction modules
+│   ├── campaigns.py                # Campaign management functionality
+│   ├── llm_fill.py                 # AI-powered field completion
+│   ├── normalize.py                # Data normalization utilities
+│   ├── notlar_parser.py            # Visit notes parsing logic
+│   ├── pdf_reader.py               # PDF extraction capabilities
+│   ├── schema.py                   # Data schema definitions
+│   └── sections.py                 # Document section extraction
+│
+├── .env.example                    # Example environment variables
+├── README.md                       # Project documentation
+├── runner_batch.py                 # Batch processing script
+├── runner_step1.py                 # Single document processor
+└── runner_weekly.py                # Weekly report generator
 ```
 
-## Kurulum
+## Installation
+1. Clone the repository:
+   ```
+   git clone https://github.com/your-organization/normvision.git
+   cd normvision
+   ```
 
-1. Gerekli Python paketlerini yükleyin
-2. `.env.example` dosyasını `.env` olarak kopyalayın ve gerekli değerleri doldurun
-3. `runner.py` scriptini çalıştırın
+2. Create and activate a virtual environment:
+   ```
+   python -m venv env
+   # On Windows
+   env\Scripts\activate
+   # On Linux/Mac
+   source env/bin/activate
+   ```
 
-## Kullanım
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-```bash
-python runner.py
+4. Set up environment variables:
+   ```
+   cp .env.example .env
+   # Edit .env file with your API keys and configuration
+   ```
+
+## Usage
+
+### Single Document Processing
 ```
+python runner_step1.py "path/to/pdf_file.pdf"
+```
+
+### Batch Processing
+```
+python runner_batch.py --input-dir "path/to/pdf_directory" --llm --markdown
+```
+
+Options:
+- `--input-dir`: Directory containing PDF files to process
+- `--llm`: Enable AI-powered field completion and summary generation
+- `--markdown`: Generate formatted Markdown reports
+- `--firm-filter "regex"`: Filter results by company name pattern
+- `--output-dir`: Specify output directory (default: current directory)
+
+## Configuration
+The system requires the following environment variables:
+- `GEMINI_API_KEY`: Google Gemini API key for AI features
+
+## Dependencies
+- Python 3.9+
+- Google Generative AI
+- PyMuPDF (fitz)
+- pdfplumber
+- pytesseract (optional, for OCR)
+- Other dependencies listed in requirements.txt
+
+## Future Development
+- Dashboard integration
+- Interactive visualization of visit trends
+- Enhanced campaign effectiveness tracking
+- Custom reporting templates
+
+## License
+Proprietary software developed for Norm Holding. All rights reserved.
