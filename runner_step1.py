@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()  # .env dosyasını yükle
 import sys
 from extractor.pdf_reader import read_pdf_text
-from extractor.sections import extract_notlar_block
+from extractor.sections import extract_notlar_block, extract_firma_adi
 from extractor.notlar_parser import parse_notlar_kv, declared_keys
 from extractor.llm_fill import llm_fill_and_summarize
 from extractor.normalize import format_amount
@@ -14,6 +14,10 @@ if __name__ == "__main__":
 
     pdf_path = sys.argv[1]
     text = read_pdf_text(pdf_path)
+    
+    # Firma adını çıkar
+    firma_adi = extract_firma_adi(text)
+    
     notlar = extract_notlar_block(text)
     
     # 1. Regex ile parse et
@@ -29,6 +33,7 @@ if __name__ == "__main__":
         return format_amount(kv.get(f"{prefix}_value"), kv.get(f"{prefix}_currency"), kv.get(f"{prefix}_raw"))
 
     # Çıktıyı göster
+    print("• Firma Adı:", firma_adi or "—")
     print("• 2024 Ciro:", get_amt("ciro_2024"))
     print("• 2025 Ciro:", get_amt("ciro_2025"))
     print("• Q2 Hedef:", get_amt("q2_hedef"))

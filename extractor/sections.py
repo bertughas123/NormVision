@@ -38,24 +38,32 @@ def extract_notlar_block(text: str) -> str:
     # Notlar başlığından sonraki metni al
     text_after_notlar = text[notlar_start.end():]
     
-    # İlk büyük harfle başlayan satırı bul (genellikle cirolar başlar)
-    # "2024 CİROSU" gibi pattern arıyoruz ve MUTABAKAT'a kadar al
-    ciro_pattern = r'(20\d{2}\s+[CÇ][İI]ROSU.*?)(?=\s*MUTABAKAT DURUMU|\s*Görevler|\s*Ekler|\n\s*$|\Z)'
-    ciro_match = re.search(ciro_pattern, text_after_notlar, re.IGNORECASE | re.DOTALL)
+    # MUTABAKAT DURUMU'na kadar olan tüm metni al
+    # FIX: Basit ve güvenilir pattern - sadece MUTABAKAT DURUMU'na kadar al
+    mutabakat_pos = text_after_notlar.find('MUTABAKAT DURUMU')
     
-    if ciro_match:
-        notlar_content = ciro_match.group(1)
-        # Temizle ve normalize et
-        notlar_content = _fix_dotted_i(clean(notlar_content))
-        return notlar_content
+    if mutabakat_pos != -1:
+        # MUTABAKAT'a kadar olan kısmı al
+        notlar_content = text_after_notlar[:mutabakat_pos]
+    else:
+        # MUTABAKAT bulunamazsa, Görevler veya Ekler'e kadar al
+        gorevler_pos = text_after_notlar.find('Görevler')
+        ekler_pos = text_after_notlar.find('Ekler')
+        
+        end_pos = None
+        if gorevler_pos != -1 and ekler_pos != -1:
+            end_pos = min(gorevler_pos, ekler_pos)
+        elif gorevler_pos != -1:
+            end_pos = gorevler_pos
+        elif ekler_pos != -1:
+            end_pos = ekler_pos
+        
+        if end_pos:
+            notlar_content = text_after_notlar[:end_pos]
+        else:
+            # Son çare: tüm metni al
+            notlar_content = text_after_notlar
     
-    # Eğer ciro bulunamazsa, basit pattern kullan ve MUTABAKAT'a kadar al
-    simple_pattern = r'([2][0-9]{3}.*?)(?=\s*MUTABAKAT DURUMU|\s*Görevler|\s*Ekler|\n\s*$|\Z)'
-    simple_match = re.search(simple_pattern, text_after_notlar, re.DOTALL)
-    
-    if simple_match:
-        notlar_content = simple_match.group(1)
-        notlar_content = _fix_dotted_i(clean(notlar_content))
-        return notlar_content
-    
-    return ""
+    # Temizle ve normalize et ama kırpma
+    notlar_content = _fix_dotted_i(notlar_content.strip())
+    return notlar_content

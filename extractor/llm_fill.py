@@ -1,6 +1,10 @@
-import os, re, json
+import os, re, json, time  # Added time import
 from typing import Dict, Any, List
 from .normalize import parse_amount
+from .campaigns import check_campaign_mentions, get_campaign_summary
+
+# Minimum delay between API calls (seconds)
+MIN_API_DELAY = 6
 
 def _missing_fields(kv: Dict[str, Any], declared_keys: List[str]) -> List[str]:
     """Bu PDF'te declared olan ama kv'de eksik olan alanları döndür"""
@@ -15,6 +19,47 @@ def _missing_fields(kv: Dict[str, Any], declared_keys: List[str]) -> List[str]:
             if not kv.get(key) or kv.get(key) == "—":
                 missing.append(key)
     return missing
+
+# Track last API call timestamp
+_last_api_call = 0
+
+def _rate_limited_api_call(model, prompt):
+    """API çağrılarını rate limit ile yap"""
+    global _last_api_call
+    
+    # Calculate time since last API call
+    current_time = time.time()
+    elapsed = current_time - _last_api_call
+    
+    # If needed, wait to maintain minimum delay between calls
+    if _last_api_call > 0 and elapsed < MIN_API_DELAY:
+        wait_time = MIN_API_DELAY - elapsed
+        print(f"🔍 DEBUG: Rate limit - waiting {wait_time:.2f}s before next API call")
+        time.sleep(wait_time)
+    
+    # Make the API call
+    response = model.generate_content(prompt)
+    
+    # Update timestamp after successful call
+    _last_api_call = time.time()
+    
+    return response
+    
+def _extract_turnover_values(kv: Dict[str, Any]) -> tuple:
+    """2024 ve 2025 ciro değerlerini çıkar"""
+    try:
+        ciro_2024 = kv.get('ciro_2024_value', 0) or 0
+        ciro_2025 = kv.get('ciro_2025_value', 0) or 0
+        
+        # String ise float'a çevir
+        if isinstance(ciro_2024, str):
+            ciro_2024 = float(re.sub(r'[^\d.]', '', ciro_2024)) if ciro_2024 != "—" else 0
+        if isinstance(ciro_2025, str):
+            ciro_2025 = float(re.sub(r'[^\d.]', '', ciro_2025)) if ciro_2025 != "—" else 0
+            
+        return float(ciro_2024), float(ciro_2025)
+    except:
+        return 0, 0
 
 def llm_fill_and_summarize(kv: Dict[str, Any], raw_notlar: str, declared_keys: List[str]) -> Dict[str, Any]:
     """PDF-spesifik dinamik alan doldurma"""
@@ -101,7 +146,8 @@ METIN:
 
                 print(f"🔍 DEBUG: Sending LLM request for missing fields...")
                 
-                resp = model.generate_content(prompt_kv)
+                # Rate-limited API call
+                resp = _rate_limited_api_call(model, prompt_kv)
                 
                 print(f"🔍 DEBUG: LLM response received: {resp.text[:200]}...")
                 
@@ -132,24 +178,60 @@ METIN:
             else:
                 print(f"🔍 DEBUG: No missing fields, skipping LLM fill")
 
-        # Her koşulda özet oluştur - DAHA KISA ve AKICI prompt
-        print(f"🔍 DEBUG: Generating summary...")
+        # Her koşulda özet oluştur - Kampanya kontrolü ve ciro analizi ile
+        print(f"🔍 DEBUG: Generating enhanced summary...")
+        
+        # Kampanya kontrolü
+        campaign_checks = check_campaign_mentions(raw_notlar)
+        campaign_warnings = []
+        
+        if campaign_checks:
+            for campaign_key, campaign_info in campaign_checks.items():
+                if isinstance(campaign_info, dict) and not campaign_info.get("mentioned", True):
+                    campaign_warnings.append(f"• {campaign_info['name']} firma sahibine belirtilmemiş")
+        
+        # Ciro analizi
+        ciro_2024, ciro_2025 = _extract_turnover_values(kv)
+        
+        # Aktif kampanyalar listesi
+        current_campaigns = get_campaign_summary()
+        
         prompt_sum = f"""
-Bu ziyaret raporunu 2-3 AKICI cümleyle özetle.
+Bu ziyaret raporunu analiz et ve kapsamlı bir özet oluştur.
 
-SADECE SOMUT BİLGİLER:
-- Kim ile görüşüldü + amaç
-- Ne alındı/sipariş edildi (rakamlarla)
-- Sonuç
-
-Numaralı liste değil, normal paragraf yaz. Kısa ve net:
-
+ZİYARET METNİ:
 {raw_notlar}
+
+KAMPANYA DURUMU:
+{current_campaigns}
+
+CİRO BİLGİLERİ:
+2024 Ciro: {ciro_2024 if ciro_2024 > 0 else 'Belirtilmemiş'}
+2025 Ciro: {ciro_2025 if ciro_2025 > 0 else 'Belirtilmemiş'}
+
+GÖREVLER:
+1. Ziyaret özetini yap (kim ile görüşüldü, amaç, sonuç) - 1-2 cümle
+2. Ciro durumunu analiz et:
+   - Eğer her iki ciro da varsa karşılaştır (arttı/azaldı/aynı ve yüzde kaç)
+   - Sadece biri varsa durumu belirt
+   - Hiçbiri yoksa "ciro bilgisi yok" de
+3. Kampanya kontrolü yap:
+   - Zımba Tabancası özel fiyat (1000 TL) belirtilmiş mi?
+   - Vida ürünlerinde özel iskonto (%54) belirtilmiş mi?
+   - Belirtilmemişse uyarı ver: "X kampanyası firma sahibine belirtilmemiş"
+4. Bir sonraki ziyaret için öneri ver - 1 cümle
+
+ÇIKTI FORMATI:
+Normal paragraf şeklinde, akıcı ve kısa yaz. Numaralı liste kullanma.
+
+KAMPANYA UYARILARI:
+{'; '.join(campaign_warnings) if campaign_warnings else 'Kontrol edilecek'}
 """.strip()
 
-        resp_sum = model.generate_content(prompt_sum)
+        # Rate-limited API call for summary
+        resp_sum = _rate_limited_api_call(model, prompt_sum)
         summary = (resp_sum.text or "").strip()
-        print(f"🔍 DEBUG: Summary generated: {summary[:100]}...")
+        print(f"🔍 DEBUG: Enhanced summary generated: {summary[:100]}...")
         if summary:
             kv["ozet"] = summary
 
