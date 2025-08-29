@@ -16,25 +16,39 @@ NormVision is an intelligent document analysis system developed for Norm Holding
 - Batch processing capability for multiple documents
 - Exports to CSV and formatted Markdown reports
 - Company-based grouping and chronological ordering
+- Automated KPI calculation (financial & sales) via analyzer modules
+- Weekly and monthly summary generation
+- CRM synchronization through the bridge layer
 
 ## Project Structure
 ```
 NormVision/
 │
-├── extractor/                      # Core extraction modules
-│   ├── campaigns.py                # Campaign management functionality
-│   ├── llm_fill.py                 # AI-powered field completion
-│   ├── normalize.py                # Data normalization utilities
-│   ├── notlar_parser.py            # Visit notes parsing logic
-│   ├── pdf_reader.py               # PDF extraction capabilities
-│   ├── schema.py                   # Data schema definitions
-│   └── sections.py                 # Document section extraction
+├── extractor/                       # Core extraction modules (PDF & LLM)
+│   ├── campaigns.py
+│   ├── llm_fill.py
+│   ├── normalize.py
+│   ├── notlar_parser.py
+│   ├── pdf_reader.py
+│   ├── schema.py
+│   └── sections.py
 │
-├── .env.example                    # Example environment variables
-├── README.md                       # Project documentation
-├── runner_batch.py                 # Batch processing script
-├── runner_step1.py                 # Single document processor
-└── runner_weekly.py                # Weekly report generator
+├── analyzer/                        # KPI & trend analysis
+│   ├── financial_analysis.py
+│   └── sales_performance.py
+│
+├── bridge/
+│   └── sales_visit_bridge.py        # CRM integration helpers
+│
+├── runner_step1.py                  # Single document processor
+├── runner_batch.py                  # Bulk processor
+├── runner_weekly.py                 # Weekly aggregator
+├── runner_monthly.py                # Monthly aggregator
+│
+├── Reports/                         # Auto-generated reports (Markdown/JSON)
+├── batch_logs_*                     # Processing logs
+├── .env.example                     # Environment template
+└── README.md
 ```
 
 ## Installation
@@ -82,6 +96,16 @@ Options:
 - `--markdown`: Generate formatted Markdown reports
 - `--firm-filter "regex"`: Filter results by company name pattern
 - `--output-dir`: Specify output directory (default: current directory)
+
+### Weekly Summary Generation
+```
+python runner_weekly.py --week 29 --year 2025 --llm
+```
+
+### Monthly Summary Generation
+```
+python runner_monthly.py --month 07 --year 2025 --llm --markdown
+```
 
 ## Configuration
 The system requires the following environment variables:
