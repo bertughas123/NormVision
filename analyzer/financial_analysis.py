@@ -78,20 +78,33 @@ class FinancialAnalyzer:
             if not vade_df.empty:
                 company_name = vade_df['Ad'].iloc[0]
                 payment_condition = vade_df['ÖdemeKoşul'].iloc[0] if 'ÖdemeKoşul' in vade_df.columns else None
-                deviation = vade_df['Sapma'].iloc[0] if 'Sapma' in vade_df.columns else None
+                # Try different variations of "bt sapma" column name
+                deviation = None
+                for col_name in ['BT Sapma', 'bt sapma', 'Bt Sapma', 'bt_sapma', 'Bt_Sapma', 'BT_SAPMA']:
+                    if col_name in vade_df.columns:
+                        deviation = vade_df[col_name].iloc[0]
+                        print(f"Found deviation column '{col_name}': {deviation}")
+                        break
                 
                 # Calculate compliance percentage
-                # If customer pays early (negative deviation), compliance can exceed 100%
                 if payment_condition and deviation is not None:
-                    # Base compliance assuming payment_condition is the agreed term
-                    base_compliance = 100
-                    # If deviation is negative (early payment), add to compliance
-                    # If deviation is positive (late payment), subtract from compliance
-                    compliance_percentage = base_compliance - (deviation / payment_condition) * 100
-                    compliance_percentage = max(0, compliance_percentage)  # Ensure non-negative
+                    print(f"Payment condition: {payment_condition} days")
+                    print(f"Deviation: {deviation} days")
                     
-                    if deviation < 0:  # Early payment
-                        compliance_percentage = base_compliance + abs(deviation / payment_condition) * 20
+                    # Compliance calculation: 
+                    # If deviation > 0: customer pays late (bad)
+                    # If deviation < 0: customer pays early (good)
+                    # If deviation = 0: customer pays on time (perfect)
+                    
+                    # BT Sapma toplam süre, ÖdemeKoşul anlaşılan süre
+                    # Gerçek sapma = BT Sapma - ÖdemeKoşul
+                    actual_deviation = deviation - payment_condition
+                    print(f"Actual deviation: {deviation} - {payment_condition} = {actual_deviation} days")
+                    
+                    # Formül: 100 - (gerçek_sapma/vade)*100
+                    base_compliance = 100
+                    compliance_percentage = base_compliance - (actual_deviation / payment_condition) * 100
+                    compliance_percentage = max(0, compliance_percentage)  # Minimum 0
                     
                     return {
                         "company_name": company_name,

@@ -150,6 +150,7 @@ def generate_monthly_analysis_with_llm(visits: List[Dict], month: int, year: int
         # Fix script'te başarılı olan model kullan
         model = genai.GenerativeModel('gemini-2.5-flash')
         
+        
         # Veri özetini hazırla (fix script'teki gibi)
         month_names = {
             1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan", 5: "Mayıs", 6: "Haziran",
@@ -237,9 +238,8 @@ LÜTFEN AŞAĞIDA BELİRTİLEN BAŞLIKLARDA DETAYLI ANALİZ YAP:
     "toplam_ziyaret": {len(visits)},
     "siparis_sayisi": {siparis_sayisi},
     "basari_orani": {(siparis_sayisi/len(visits)*100):.1f},
-    "ana_kampanyalar": ["kampanya1", "kampanya2"],
+    "sunulan_urunler_ve_kampanyalar": ["kampanya1", "kampanya2"],
     "tespit_edilen_rakipler": ["rakip1"],
-    "risk_seviyesi": "orta",
     "onerililen_aksiyonlar": ["aksiyon1", "aksiyon2"],
     "genel_degerlendirme": "olumlu"
 }}
@@ -293,9 +293,8 @@ ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
     "toplam_ziyaret": {len(visits)},
     "siparis_sayisi": {siparis_sayisi},
     "basari_orani": {(siparis_sayisi/len(visits)*100):.1f},
-    "ana_kampanyalar": {str(kampanya_listesi[:3])},
+    "sunulan_urunler_ve_kampanyalar": {str(kampanya_listesi[:3])},
     "tespit_edilen_rakipler": {str(rakip_listesi[:2])},
-    "risk_seviyesi": "orta",
     "onerililen_aksiyonlar": ["Kampanya çeşitliliği artırılmalı", "Rakip analizi güçlendirilmeli"],
     "genel_degerlendirme": "olumlu"
 }}"""
@@ -313,9 +312,8 @@ ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
     "toplam_ziyaret": {len(visits) if visits else 0},
     "siparis_sayisi": 0,
     "basari_orani": 0,
-    "ana_kampanyalar": [],
+    "sunulan_urunler_ve_kampanyalar": [],
     "tespit_edilen_rakipler": [],
-    "risk_seviyesi": "yuksek",
     "onerililen_aksiyonlar": ["LLM analizi tekrarlanmalı"],
     "genel_degerlendirme": "analiz_hatasi"
 }}"""
@@ -520,6 +518,34 @@ def main():
     report_path = reports_dir / report_filename
     
     create_monthly_markdown_report(filtered_visits, analysis, json_summary, args.month, args.year, str(report_path))
+    
+    # KPI JSON'unu ayrı dosya olarak kaydet
+    json_filename = f"NormVision_KPI_{month_name}_{args.year}_{timestamp}.json"
+    json_path = reports_dir / json_filename
+    
+    try:
+        # JSON formatını düzelt ve kaydet
+        import json
+        json_data = json.loads(json_summary)
+        
+        # Key ismini değiştir (eski key varsa)
+        if "ana_kampanyalar" in json_data:
+            json_data["sunulan_urunler_ve_kampanyalar"] = json_data.pop("ana_kampanyalar")
+        
+        # İstenmeyen key'leri kaldır
+        if "risk_seviyesi" in json_data:
+            json_data.pop("risk_seviyesi")
+        
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, ensure_ascii=False, indent=2)
+        print(f"KPI JSON dosyası oluşturuldu: {json_path}")
+    except json.JSONDecodeError as e:
+        print(f"JSON formatı hatalı, ham veri kaydediliyor: {e}")
+        with open(json_path, 'w', encoding='utf-8') as f:
+            f.write(json_summary)
+        print(f"Ham JSON dosyası oluşturuldu: {json_path}")
+    except Exception as e:
+        print(f"JSON dosyası oluşturulurken hata: {e}")
     
     print(f"\nAylık rapor oluşturuldu: {report_path}")
     print(f"Rapor dönemi: {month_name} {args.year}")

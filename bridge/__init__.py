@@ -1,0 +1,1 @@
+# Bridge modülü - Sales ve Visit verilerini birleştiren köprü
