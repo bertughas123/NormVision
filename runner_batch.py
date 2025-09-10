@@ -209,7 +209,7 @@ def create_markdown_report(results: list, output_path: str):
         
         # Her firma için ayrı bölüm
         for firma_adi, visits in firma_groups.items():
-            f.write(f"## 🏢 {firma_adi}\n\n")
+            f.write(f"## [COMPANY] {firma_adi}\n\n")
             
             # Firma özet bilgileri
             latest_visit = max(visits, key=lambda x: x['pdf_name'])
@@ -223,7 +223,7 @@ def create_markdown_report(results: list, output_path: str):
             
             for i, visit in enumerate(visits_sorted, 1):
                 visit_date = format_date_from_filename(visit['pdf_name'])
-                f.write(f"### 📅 Ziyaret {i} - {visit_date}\n\n")
+                f.write(f"### [DATE] Ziyaret {i} - {visit_date}\n\n")
                 
                 # Temel bilgiler
                 f.write("**Temel Bilgiler:**\n")
@@ -284,7 +284,7 @@ def main():
     output_dir = Path(args.output_dir)
     
     if not input_dir.exists():
-        print(f"❌ Hata: Giriş klasörü bulunamadı: {input_dir}")
+        print(f"[ERROR] Hata: Giriş klasörü bulunamadı: {input_dir}")
         sys.exit(1)
     
     # PDF dosyalarını bul - DÜZELTME: Case-insensitive unique collection
@@ -309,18 +309,18 @@ def main():
     pdf_files = sorted(pdf_files)
     
     if not pdf_files:
-        print(f"❌ Hata: {input_dir} klasöründe PDF dosyası bulunamadı")
+        print(f"[ERROR] Hata: {input_dir} klasöründe PDF dosyası bulunamadı")
         sys.exit(1)
     
     print(f"📁 {len(pdf_files)} UNIQUE PDF dosyası bulundu:")
     for i, pdf_file in enumerate(pdf_files, 1):
         print(f"   {i:2d}. {pdf_file.name}")
     
-    print(f"🔧 LLM kullanımı: {'AÇIK' if args.llm else 'KAPALI'}")
+    print(f"[TOOL] LLM kullanımı: {'AÇIK' if args.llm else 'KAPALI'}")
     print(f"📄 Markdown raporu: {'AÇIK' if args.markdown else 'KAPALI'}")
     
     if args.firm_filter:
-        print(f"🔍 Firma filtresi: {args.firm_filter}")
+        print(f"[DEBUG] Firma filtresi: {args.firm_filter}")
     
     # PDF'leri işle
     results = []
@@ -340,7 +340,7 @@ def main():
                 break
             except Exception as e:
                 if "ResourceExhausted" in str(e) and attempt < max_retries - 1:
-                    print(f"   ⚠️ API rate limit aşıldı. {retry_delay} saniye bekleniyor... ({attempt+1}/{max_retries})")
+                    print(f"   [WARNING] API rate limit aşıldı. {retry_delay} saniye bekleniyor... ({attempt+1}/{max_retries})")
                     time.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
                 else:
@@ -364,12 +364,12 @@ def main():
         results.append(result)
         
         if result['status'] == 'SUCCESS':
-            print(f"   ✅ Başarılı - Firma: {result['firma_adi']} - Süre: {result['elapsed_seconds']}s")
+            print(f"   [SUCCESS] Başarılı - Firma: {result['firma_adi']} - Süre: {result['elapsed_seconds']}s")
         else:
-            print(f"   ❌ Hata: {result.get('error_message', 'Bilinmeyen hata')}")
+            print(f"   [ERROR] Hata: {result.get('error_message', 'Bilinmeyen hata')}")
     
     if not results:
-        print("\n❌ İşlenecek dosya kalmadı")
+        print("\n[ERROR] İşlenecek dosya kalmadı")
         sys.exit(0)
     
     # Çıktı dosyalarını oluştur
@@ -378,7 +378,7 @@ def main():
     # batch_logs.csv
     logs_path = output_dir / f"batch_logs_{timestamp}.csv"
     write_batch_logs(results, str(logs_path))
-    print(f"\n📊 Batch logları kaydedildi: {logs_path}")
+    print(f"\n[STATS] Batch logları kaydedildi: {logs_path}")
     
     # summary_by_firma.csv
     summary_path = output_dir / f"summary_by_firma_{timestamp}.csv"
@@ -396,7 +396,7 @@ def main():
     failed = len([r for r in results if r['status'] == 'ERROR'])
     total_time = sum([r['elapsed_seconds'] for r in results])
     
-    print(f"\n📋 İşlem Tamamlandı:")
+    print(f"\n[STEP] İşlem Tamamlandı:")
     print(f"   • Toplam: {len(results)} dosya")
     print(f"   • Başarılı: {successful}")
     print(f"   • Hatalı: {failed}")

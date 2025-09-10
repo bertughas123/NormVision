@@ -6,13 +6,19 @@ Analyzes customer payment compliance, collection periods, and credit limit compl
 import pandas as pd
 import json
 import re
+import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+# .env dosyasını yükle
+load_dotenv()
 
 class FinancialAnalyzer:
     def __init__(self):
-        self.vade_file_path = r'C:\Users\acer\Desktop\NORM HOLDING\datasforfinalblock\Musteri_Ortalama_Vade_Raporu.xlsx'
-        self.balance_file_path = r'C:\Users\acer\Desktop\NORM HOLDING\datasforfinalblock\Yuruyen_Bakiyeli_Musteri_Ekstresi.xlsx'
-        self.sales_file_path = r'C:\Users\acer\Desktop\NORM HOLDING\datasforfinalblock\LLM_Input_Satis_Analizi.json'
+        datas_base = os.getenv('DATAS_BASE', r'C:\Users\acer\Desktop\NORM HOLDING\datasforfinalblock')
+        self.vade_file_path = os.path.join(datas_base, 'Musteri_Ortalama_Vade_Raporu.xlsx')
+        self.balance_file_path = os.path.join(datas_base, 'Yuruyen_Bakiyeli_Musteri_Ekstresi.xlsx')
+        self.sales_file_path = os.path.join(datas_base, 'LLM_Input_Satis_Analizi.json')
     
     def clean_currency_value(self, value_str):
         """
@@ -273,12 +279,12 @@ def main():
     # Generate comprehensive analysis
     financial_json = analyzer.generate_comprehensive_financial_json()
     
-    # Save to file
-    output_file = r'C:\Users\acer\Desktop\NORM HOLDING\datasforfinalblock\LLM_Input_Finansal_Analiz.json'
+    # Save to file - Updated to use the same file as input (enrichment approach)
+    output_file = analyzer.sales_file_path  # Use the same file as input
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(financial_json, f, ensure_ascii=False, indent=2)
     
-    print(f"Financial analysis completed and saved to: {output_file}")
+    print(f"Financial analysis completed and enriched existing file: {output_file}")
     
     # Print key findings
     print("\n=== KEY FINANCIAL FINDINGS ===")

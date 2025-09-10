@@ -7,9 +7,9 @@ LLM özet oluştururken bu kampanyaların ziyaret raporunda geçip geçmediğini
 from datetime import datetime
 from typing import Dict, List
 
-# Mevcut ay kampanyaları (Ağustos 2025)
+# Mevcut ay kampanyaları (Temmuz 2025)
 CURRENT_MONTH_CAMPAIGNS = {
-    "month": "2025-08",  # YYYY-MM formatı
+    "month": "2025-07",  # YYYY-MM formatı
     "campaigns": {
         "zimba_tabancasi": {
             "name": "Zımba Tabancası Özel Fiyat",
@@ -46,7 +46,7 @@ def get_current_campaigns() -> Dict:
         return CURRENT_MONTH_CAMPAIGNS["campaigns"]
     else:
         # Kampanya tarihi geçmişse uyarı ver
-        print(f"⚠️ UYARI: Kampanya tarihi güncel değil. Mevcut: {current_month}, Tanımlı: {CURRENT_MONTH_CAMPAIGNS['month']}")
+        print(f"[WARNING] UYARI: Kampanya tarihi güncel değil. Mevcut: {current_month}, Tanımlı: {CURRENT_MONTH_CAMPAIGNS['month']}")
         return {}
 
 def check_campaign_mentions(text: str) -> Dict[str, bool]:

@@ -50,15 +50,15 @@ class KPIBridge:
             
             if isinstance(materials, list):
                 self.customer_materials = materials
-                print(f"✅ Finansal Analiz JSON'dan {len(self.customer_materials)} malzeme tipi yüklendi")
+                print(f"[SUCCESS] Finansal Analiz JSON'dan {len(self.customer_materials)} malzeme tipi yüklendi")
                 return True
             else:
                 self.customer_materials = []
-                print("⚠️ Finansal Analiz JSON'da malzeme tipleri bulunamadı")
+                print("[WARNING] Finansal Analiz JSON'da malzeme tipleri bulunamadı")
                 return False
                 
         except Exception as e:
-            print(f"❌ Finansal Analiz JSON yüklenemedi: {str(e)}")
+            print(f"[ERROR] Finansal Analiz JSON yüklenemedi: {str(e)}")
             self.customer_materials = []
             return False
     
@@ -84,11 +84,11 @@ class KPIBridge:
             else:
                 self.kpi_campaigns = []
                 
-            print(f"✅ KPI JSON'dan {len(self.kpi_campaigns)} kampanya yüklendi")
+            print(f"[SUCCESS] KPI JSON'dan {len(self.kpi_campaigns)} kampanya yüklendi")
             return True
             
         except Exception as e:
-            print(f"❌ KPI JSON yüklenemedi: {str(e)}")
+            print(f"[ERROR] KPI JSON yüklenemedi: {str(e)}")
             self.kpi_campaigns = []
             return False
     
@@ -113,19 +113,18 @@ class KPIBridge:
                 "analiz_tarihi": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "ilgilenilen_urun_gruplari": bridge_result.get("ilgilenilen_urun_gruplari", []),
                 "sunulan_urun_gruplari": bridge_result.get("sunulan_urun_gruplari", []),
-                "teklif_verilen_urun_gruplari": bridge_result.get("teklif_verilen_urun_gruplari", []),
-                "basari_orani": self._calculate_success_rate(bridge_result)
+                "teklif_verilen_urun_gruplari": bridge_result.get("teklif_verilen_urun_gruplari", [])
             }
             
             # Güncellenmiş veriyi geri yaz
             with open(finansal_json_path, 'w', encoding='utf-8') as f:
                 json.dump(finansal_data, f, ensure_ascii=False, indent=2)
             
-            print(f"✅ Bridge analiz sonuçları Finansal Analiz JSON'a eklendi")
+            print(f"[SUCCESS] Bridge analiz sonuçları Finansal Analiz JSON'a eklendi")
             return True
             
         except Exception as e:
-            print(f"❌ Finansal Analiz JSON'a yazma hatası: {str(e)}")
+            print(f"[ERROR] Finansal Analiz JSON'a yazma hatası: {str(e)}")
             return False
         
     def analyze_kpi_campaigns(self) -> Dict[str, Any]:
@@ -135,11 +134,11 @@ class KPIBridge:
         Returns:
             Dict: Analiz sonuçları (İlgilenilen, Sunulan, Teklif Verilen ürün grupları)
         """
-        print(f"\n🔍 {self.customer_name} için KPI kampanya analizi yapılıyor...")
+        print(f"\n[DEBUG] {self.customer_name} için KPI kampanya analizi yapılıyor...")
         
         # KPI kampanyaları var mı kontrol et
         if not self.kpi_campaigns:
-            print("⚠️ KPI JSON'da kampanya bilgisi bulunamadı")
+            print("[WARNING] KPI JSON'da kampanya bilgisi bulunamadı")
             return self._get_empty_result()
         
         # KPI kampanyalarını string olarak birleştir
@@ -154,7 +153,7 @@ class KPIBridge:
             # Gemini API'yi yapılandır
             api_key = os.getenv('GEMINI_API_KEY')
             if not api_key:
-                print("⚠️ GEMINI_API_KEY bulunamadı")
+                print("[WARNING] GEMINI_API_KEY bulunamadı")
                 return self._get_empty_result()
                 
             genai.configure(api_key=api_key)
@@ -206,7 +205,7 @@ class KPIBridge:
             result = json.loads(result_text)
             
             # Debug bilgisi
-            print(f"✅ KPI Analizi tamamlandı:")
+            print(f"[SUCCESS] KPI Analizi tamamlandı:")
             print(f"   - İlgilenilen: {len(result.get('ilgilenilen_urun_gruplari', []))} ürün")
             print(f"   - Sunulan: {len(result.get('sunulan_urun_gruplari', []))} ürün")
             print(f"   - Teklif Verilen: {len(result.get('teklif_verilen_urun_gruplari', []))} ürün")
@@ -214,7 +213,7 @@ class KPIBridge:
             return result
             
         except Exception as e:
-            print(f"❌ KPI LLM analizi hatası: {str(e)}")
+            print(f"[ERROR] KPI LLM analizi hatası: {str(e)}")
             return self._get_empty_result()
     
     def _get_empty_result(self) -> Dict[str, Any]:
@@ -227,63 +226,14 @@ class KPIBridge:
             "hata": "LLM analizi yapılamadı"
         }
     
-    def create_kpi_report(self, analysis_result: Dict[str, Any]) -> str:
-        """
-        KPI analiz sonuçlarından Markdown raporu oluştur
-        
-        Args:
-            analysis_result: LLM analiz sonuçları
-            
-        Returns:
-            str: Markdown formatında rapor
-        """
-        report = f"""
-## 🔗 KPI Bridge Analizi
 
-### 📊 Özet
-- **Müşteri**: {self.customer_name}
-- **Analiz Tarihi**: {datetime.now().strftime('%d.%m.%Y %H:%M')}
-
-### 1️⃣ İlgilenilen Ürün Grupları (Müşterinin Satın Aldıkları)
-{self._format_product_list(analysis_result.get('ilgilenilen_urun_gruplari', []))}
-
-### 2️⃣ Sunulan Ürün Grupları (KPI Kampanyalarından)
-{self._format_product_list(analysis_result.get('sunulan_urun_gruplari', []))}
-
-### 3️⃣ Teklif Verilen Ürün Grupları (Kesişim)
-{self._format_product_list(analysis_result.get('teklif_verilen_urun_gruplari', []))}
-
-### 📈 Analiz Sonuçları
-- **Toplam İlgilenilen**: {len(analysis_result.get('ilgilenilen_urun_gruplari', []))} ürün grubu
-- **Toplam Sunulan**: {len(analysis_result.get('sunulan_urun_gruplari', []))} ürün grubu
-- **Teklif Verilen**: {len(analysis_result.get('teklif_verilen_urun_gruplari', []))} ürün grubu
-- **Başarı Oranı**: {self._calculate_success_rate(analysis_result)}%
-"""
-        return report
-    
-    def _format_product_list(self, products: List[str]) -> str:
-        """Ürün listesini formatla"""
-        if not products:
-            return "*Ürün bulunamadı*\n"
-        
-        return "\n".join([f"- {product}" for product in products]) + "\n"
-    
-    def _calculate_success_rate(self, analysis_result: Dict[str, Any]) -> int:
-        """Başarı oranını hesapla"""
-        ilgilenilen = len(analysis_result.get('ilgilenilen_urun_gruplari', []))
-        teklif_verilen = len(analysis_result.get('teklif_verilen_urun_gruplari', []))
-        
-        if ilgilenilen == 0:
-            return 0
-        
-        return int((teklif_verilen / ilgilenilen) * 100)
 
 
 def run_complete_kpi_workflow(
     finansal_json_path: str,
     kpi_json_path: str,
     customer_name: str = "Norm Holding Müşterisi"
-) -> tuple[str, Dict[str, Any], bool]:
+) -> tuple[Dict[str, Any], bool]:
     """
     Komple KPI bridge workflow'u çalıştır:
     1. Finansal Analiz JSON'dan malzeme tiplerini oku
@@ -297,7 +247,7 @@ def run_complete_kpi_workflow(
         customer_name: Müşteri adı
         
     Returns:
-        tuple: (Markdown raporu, JSON analiz sonucu, başarı durumu)
+        tuple: (JSON analiz sonucu, başarı durumu)
     """
     print(f"\n{'='*60}")
     print(f"🔗 KPI BRIDGE WORKFLOW BAŞLATILIYOR")
@@ -308,13 +258,13 @@ def run_complete_kpi_workflow(
     
     # 1. Finansal Analiz JSON'dan malzeme tiplerini yükle
     if not bridge.load_materials_from_finansal_json(finansal_json_path):
-        print("❌ Finansal Analiz JSON yüklenemedi")
-        return "Finansal Analiz JSON yüklenemedi", bridge._get_empty_result(), False
+        print("[ERROR] Finansal Analiz JSON yüklenemedi")
+        return bridge._get_empty_result(), False
     
     # 2. KPI JSON'dan kampanyaları yükle
     if not bridge.load_kpi_campaigns_from_json(kpi_json_path):
-        print("❌ KPI JSON yüklenemedi")
-        return "KPI JSON yüklenemedi", bridge._get_empty_result(), False
+        print("[ERROR] KPI JSON yüklenemedi")
+        return bridge._get_empty_result(), False
     
     # 3. Analizi yap
     analysis_result = bridge.analyze_kpi_campaigns()
@@ -323,18 +273,15 @@ def run_complete_kpi_workflow(
     save_success = bridge.save_bridge_result_to_finansal_json(finansal_json_path, analysis_result)
     
     if not save_success:
-        print("⚠️ Analiz tamamlandı ama Finansal Analiz JSON'a yazılamadı")
+        print("[WARNING] Analiz tamamlandı ama Finansal Analiz JSON'a yazılamadı")
     
-    # 5. Rapor oluştur
-    report = bridge.create_kpi_report(analysis_result)
-    
-    print(f"\n✅ KPI Bridge workflow tamamlandı")
+    print(f"\n[SUCCESS] KPI Bridge workflow tamamlandı")
     print(f"   - Malzeme Tipleri: {len(bridge.customer_materials)}")
     print(f"   - KPI Kampanyaları: {len(bridge.kpi_campaigns)}")
     print(f"   - Finansal JSON Güncellendi: {'✓' if save_success else '✗'}")
     print(f"{'='*60}\n")
     
-    return report, analysis_result, save_success
+    return analysis_result, save_success
 
 
 # Test kodu - Gerçek dosyalarla test
@@ -346,12 +293,12 @@ if __name__ == "__main__":
     
     print("=== GERÇEK DOSYALARLA KPI BRIDGE TEST ===")
     
-    # Gerçek dosya yolları
+    # Gerçek dosya yolları (yeni klasör yapısına göre)
     finansal_path = "datasforfinalblock/LLM_Input_Finansal_Analiz.json"
-    kpi_path = "Reports/Monthly/2025/07-Temmuz/NormVision_KPI_Temmuz_2025_20250829_005546.json"
+    kpi_path = "Reports/Monthly/Sirinler_Baglanti_Elem/07-Temmuz/NormVision_KPI_Sirinler_Baglanti_Elem_Temmuz_2025_20250829_005546.json"
     
     # Test et
-    report, result, success = run_complete_kpi_workflow(
+    result, success = run_complete_kpi_workflow(
         finansal_json_path=finansal_path,
         kpi_json_path=kpi_path,
         customer_name="Şirinler Bağlantı Elem."
@@ -363,6 +310,3 @@ if __name__ == "__main__":
     print(f"\n=== ANALİZ SONUCU ===")
     import json
     print(json.dumps(result, indent=2, ensure_ascii=False))
-    
-    print(f"\n=== MARKDOWN RAPORU (İlk 300 karakter) ===")
-    print(report[:300] + "..." if len(report) > 300 else report)

@@ -143,3 +143,24 @@ dmypy.json
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Project-specific ignores
+# Reports klasörü (generated content)
+Reports/
+reports/
+
+# Data klasörü (sensitive business data)
+../../../datasforfinalblock/
+**/datasforfinalblock/
+
+# CRM PDF dataset (sensitive customer visit reports)
+../../../crmyapayzekamodlrnekdataset/
+**/crmyapayzekamodlrnekdataset/
+
+# Documentation files (auto-generated or sensitive)
+COMPANY_FILE_STRUCTURE.md
+README_New_Architecture.md
+
+# Generated final reports
+Final_Report_*.json
+**/Final_Report_*.json

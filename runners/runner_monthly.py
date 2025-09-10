@@ -1,4 +1,4 @@
-v#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 NormVision - Monthly Report Generator
 Aylık ziyaret raporlarını analiz ederek kapsamlı aylık özet ve öneriler oluşturur.
@@ -7,6 +7,7 @@ Aylık ziyaret raporlarını analiz ederek kapsamlı aylık özet ve öneriler o
 import sys
 import argparse
 import re
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
@@ -15,12 +16,49 @@ import os
 import time
 from dotenv import load_dotenv
 
+# Windows için UTF-8 fix
+if sys.platform == "win32":
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    os.environ['PYTHONUTF8'] = '1'
+
+def safe_print(*args, **kwargs):
+    """Güvenli print fonksiyonu - Unicode hatalarını engeller"""
+    import unicodedata
+    safe_args = []
+    for arg in args:
+        try:
+            if isinstance(arg, str):
+                # Unicode normalizasyonu
+                normalized = unicodedata.normalize('NFKD', arg)
+                # ASCII'ye dönüştür
+                ascii_safe = normalized.encode('ascii', 'ignore').decode('ascii')
+                safe_args.append(ascii_safe)
+            else:
+                # Non-string objeleri string'e çevir ve normalize et
+                str_arg = str(arg)
+                normalized = unicodedata.normalize('NFKD', str_arg)
+                ascii_safe = normalized.encode('ascii', 'ignore').decode('ascii')
+                safe_args.append(ascii_safe)
+        except Exception:
+            # En kötü durumda bile basit string representation kullan
+            safe_args.append('[unprintable]')
+    
+    try:
+        print(*safe_args, **kwargs)
+    except UnicodeEncodeError:
+        # Son çare: sadece ASCII printable karakterler
+        ascii_args = []
+        for arg in safe_args:
+            ascii_args.append(''.join(c for c in str(arg) if ord(c) < 128))
+        print(*ascii_args, **kwargs)
+
 load_dotenv()
 
 # Extractor modüllerini import et
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent))
 from extractor.pdf_reader import read_pdf_text
 from extractor.sections import extract_notlar_block, extract_firma_adi
+from utils.company_name_utils import normalize_company_name, normalize_for_filename
 from extractor.notlar_parser import parse_notlar_kv, declared_keys
 from extractor.llm_fill import llm_fill_and_summarize
 from extractor.normalize import format_amount
@@ -90,6 +128,7 @@ def process_single_pdf_for_monthly(pdf_path: str) -> Dict[str, Any]:
         
     except Exception as e:
         elapsed_seconds = round(time.time() - start_time, 2)
+        safe_print(f"[ERROR] PDF isleme hatasi {pdf_path}: {str(e)}")
         return {
             'status': 'ERROR',
             'error_message': str(e),
@@ -154,21 +193,32 @@ def sanitize_company_name_for_filename(company_name: str) -> str:
 
 def filter_visits_by_month(visits: List[Dict], target_month: int, target_year: int) -> List[Dict]:
     """Belirtilen ay ve yıla ait ziyaretleri filtreler"""
+    print(f"[DEBUG] Filtreleme başlıyor - Hedef: {target_month}/{target_year}")
     filtered = []
-    for visit in visits:
+    for i, visit in enumerate(visits):
+        print(f"[DEBUG] Ziyaret {i+1} - Status: {visit['status']}")
         if visit['status'] != 'SUCCESS':
+            print(f"[DEBUG] Ziyaret {i+1} başarısız, atlanıyor")
             continue
             
         visit_date = visit['data'].get('visit_date', '')
+        print(f"[DEBUG] Ziyaret {i+1} - Tarih: '{visit_date}'")
         if visit_date and visit_date != "Tarih Bulunamadı":
             try:
                 date_obj = datetime.strptime(visit_date, '%Y-%m-%d')
+                print(f"[DEBUG] Ziyaret {i+1} - Parse edildi: {date_obj.month}/{date_obj.year}")
                 if date_obj.month == target_month and date_obj.year == target_year:
+                    print(f"[DEBUG] Ziyaret {i+1} - EŞLEŞME BULUNDU!")
                     filtered.append(visit)
-            except ValueError:
-                # Tarih formatı hatalı ise atla
+                else:
+                    print(f"[DEBUG] Ziyaret {i+1} - Tarih eşleşmiyor")
+            except ValueError as e:
+                safe_print(f"[DEBUG] Ziyaret {i+1} - Tarih parse hatasi: {str(e)}")
                 continue
+        else:
+            print(f"[DEBUG] Ziyaret {i+1} - Tarih bulunamadı veya geçersiz")
     
+    print(f"[DEBUG] Filtreleme tamamlandı - {len(filtered)} eşleşme bulundu")
     return sorted(filtered, key=lambda x: x['data']['visit_date'])
 
 def generate_monthly_analysis_with_llm(visits: List[Dict], month: int, year: int) -> tuple[str, str]:
@@ -285,15 +335,15 @@ LÜTFEN AŞAĞIDA BELİRTİLEN BAŞLIKLARDA DETAYLI ANALİZ YAP:
 
 ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
 
-        print("🔄 LLM ile gelişmiş analiz oluşturuluyor...")
+        print("[PROCESS] LLM ile gelişmiş analiz oluşturuluyor...")
         # Rate limiting için bekleme
         time.sleep(2)
         
         response = model.generate_content(prompt)
         full_response = response.text
         
-        print(f"🔍 DEBUG: LLM response length: {len(full_response)} characters")
-        print(f"🔍 DEBUG: Response contains 'json': {'json' in full_response.lower()}")
+        print(f"[DEBUG] LLM response length: {len(full_response)} characters")
+        print(f"[DEBUG] Response contains 'json': {'json' in full_response.lower()}")
         
         # GELİŞMİŞ JSON PARSING (fix script'teki gibi)
         import re
@@ -302,11 +352,11 @@ ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
         
         if json_match:
             json_ozet = json_match.group(1)
-            print(f"🔍 DEBUG: JSON found and extracted: {len(json_ozet)} characters")
+            print(f"[DEBUG] JSON found and extracted: {len(json_ozet)} characters")
             # JSON kısmını ana metinden çıkar
             rapor_metni = re.sub(json_pattern, '', full_response, flags=re.DOTALL).strip()
         else:
-            print("🔍 DEBUG: No JSON pattern found in response")
+            print("[DEBUG] No JSON pattern found in response")
             # Alternatif JSON arama - sadece { } arasındaki son kısmı al
             lines = full_response.split('\n')
             json_lines = []
@@ -321,7 +371,7 @@ ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
             
             if json_lines:
                 json_ozet = '\n'.join(json_lines)
-                print(f"🔍 DEBUG: Alternative JSON extraction: {len(json_ozet)} characters")
+                print(f"[DEBUG] Alternative JSON extraction: {len(json_ozet)} characters")
                 rapor_metni = full_response
             else:
                 # MANUEL JSON OLUŞTUR (fix script'teki gibi)
@@ -337,12 +387,12 @@ ANALİZİ TÜRKÇE, DETAYLI VE PROFESYONEL ANALİZ YAP!"""
     "genel_degerlendirme": "olumlu"
 }}"""
                 rapor_metni = full_response
-                print("🔍 DEBUG: Using manual JSON generation")
+                print("[DEBUG] Using manual JSON generation")
         
         return rapor_metni, json_ozet
         
     except Exception as e:
-        print(f"🔍 DEBUG: LLM error: {str(e)}")
+        safe_print(f"[DEBUG] LLM error: {str(e)}")
         # HATA DURUMUNDA MİNİMAL JSON DÖNDÜR (fix script'teki gibi)
         fallback_json = f"""{{
     "ay": {month},
@@ -529,15 +579,22 @@ def main():
     print(f"{args.month}/{args.year} döneminde {len(filtered_visits)} ziyaret bulundu")
     
     # Şirket adını belirle (ilk başarılı ziyaretten al)
-    company_name = "UnknownCompany"
+    company_name = "UNKNOWN_COMPANY"
     for visit in filtered_visits:
         if visit['status'] == 'SUCCESS':
             raw_company_name = visit['data'].get('firma_adi', '')
             if raw_company_name and raw_company_name not in ['—', 'Belirtilmemiş']:
-                company_name = sanitize_company_name_for_filename(raw_company_name)
+                company_name = normalize_company_name(raw_company_name)  # Ortak normalizasyon
                 break
     
-    print(f"Şirket adı dosya adlandırması için: {company_name}")
+    # Şirket adını güvenli encoding ile yazdır
+    try:
+        print(f"Sirket adi dosya adlandirmasi icin: {company_name}")
+    except UnicodeEncodeError:
+        # Türkçe karakterleri ASCII'ye dönüştür
+        import unicodedata
+        company_name_ascii = unicodedata.normalize('NFKD', company_name).encode('ascii', 'ignore').decode('ascii')
+        print(f"Sirket adi dosya adlandirmasi icin: {company_name_ascii}")
     
     # LLM analizi
     analysis = ""
@@ -557,9 +614,9 @@ def main():
     }
     month_name = month_names.get(args.month, str(args.month))
     
-    # Profesyonel klasör yapısı oluştur - Şirket adı(klasör) -> Ay bilgisi(klasör)
-    # Örnek: Reports/Monthly/{company_name}/{month}-{month_name}/
-    reports_dir = output_dir / "Reports" / "Monthly" / company_name / f"{args.month:02d}-{month_name}"
+    # Standart Reports klasörünü kullan (.env'den)
+    reports_base = os.getenv('REPORTS_BASE', str(output_dir / "Reports" / "Monthly"))
+    reports_dir = Path(reports_base) / company_name / f"{args.month:02d}-{month_name}"
     reports_dir.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -587,18 +644,26 @@ def main():
         
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)
-        print(f"KPI JSON dosyası oluşturuldu: {json_path}")
+        print(f"KPI JSON dosyasi olusturuldu: {json_path}")
     except json.JSONDecodeError as e:
-        print(f"JSON formatı hatalı, ham veri kaydediliyor: {e}")
-        with open(json_path, 'w', encoding='utf-8') as f:
-            f.write(json_summary)
-        print(f"Ham JSON dosyası oluşturuldu: {json_path}")
+        safe_print(f"JSON formati hatali, ham veri kaydediliyor: {str(e)}")
+        # Ham veri de mümkünse JSON formatında kaydet
+        try:
+            # Ham JSON string'i parse etmeyi dene
+            fallback_data = json.loads(json_summary)
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(fallback_data, f, ensure_ascii=False, indent=2)
+        except:
+            # Parse edilemezse ham string'i kaydet
+            with open(json_path, 'w', encoding='utf-8') as f:
+                f.write(json_summary)
+        print(f"Ham JSON dosyasi olusturuldu: {json_path}")
     except Exception as e:
-        print(f"JSON dosyası oluşturulurken hata: {e}")
+        safe_print(f"JSON dosyasi olusturulurken hata: {str(e)}")
     
-    print(f"\nAylık rapor oluşturuldu: {report_path}")
-    print(f"Rapor dönemi: {month_name} {args.year}")
-    print(f"Analiz edilen ziyaret sayısı: {len(filtered_visits)}")
+    print(f"\nAylik rapor olusturuldu: {report_path}")
+    print(f"Rapor donemi: {month_name} {args.year}")
+    print(f"Analiz edilen ziyaret sayisi: {len(filtered_visits)}")
 
 if __name__ == "__main__":
     main()

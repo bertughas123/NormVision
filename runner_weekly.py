@@ -65,7 +65,7 @@ def process_pdfs_with_dates(input_dir: Path, use_llm: bool = False) -> tuple[dic
         file_date = extract_date_from_filename(pdf_path.name)
         
         if not file_date:
-            print(f"   ⚠️  Dosya adından tarih çıkarılamadı, atlanıyor")
+            print(f"   [WARNING]  Dosya adından tarih çıkarılamadı, atlanıyor")
             undated_files.append(pdf_path.name)
             continue
         
@@ -105,10 +105,10 @@ def process_pdfs_with_dates(input_dir: Path, use_llm: bool = False) -> tuple[dic
             }
             
             weekly_data[week_key].append(result)
-            print(f"   ✅ Başarılı - Firma: {firma_adi} - Hafta: {week_key}")
+            print(f"   [SUCCESS] Başarılı - Firma: {firma_adi} - Hafta: {week_key}")
             
         except Exception as e:
-            print(f"   ❌ Hata: {str(e)}")
+            print(f"   [ERROR] Hata: {str(e)}")
     
     return dict(weekly_data), undated_files
 
@@ -148,7 +148,7 @@ def write_weekly_markdown(weekly_data: dict, output_path: str):
     """Haftalık veriyi Markdown formatında yazar"""
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write("# Haftalık Ziyaret Özeti Raporu\n\n")
-        f.write(f"📅 Rapor oluşturulma: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+        f.write(f"[DATE] Rapor oluşturulma: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
         
         # Haftalara göre sıralı yaz
         for week_key in sorted(weekly_data.keys()):
@@ -209,17 +209,17 @@ def main():
     output_dir = Path(args.output_dir)
     
     if not input_dir.exists():
-        print(f"❌ Hata: Giriş klasörü bulunamadı: {input_dir}")
+        print(f"[ERROR] Hata: Giriş klasörü bulunamadı: {input_dir}")
         sys.exit(1)
     
-    print(f"🔧 LLM kullanımı: {'AÇIK' if args.llm else 'KAPALI'}")
-    print(f"📊 Çıktı formatı: {args.output_format}")
+    print(f"[TOOL] LLM kullanımı: {'AÇIK' if args.llm else 'KAPALI'}")
+    print(f"[STATS] Çıktı formatı: {args.output_format}")
     
     # PDF'leri işle ve tarihe göre grupla
     weekly_data, undated_files = process_pdfs_with_dates(input_dir, args.llm)
     
     if not weekly_data:
-        print("\n❌ İşlenecek tarihli dosya bulunamadı")
+        print("\n[ERROR] İşlenecek tarihli dosya bulunamadı")
         sys.exit(1)
     
     # Çıktı dosyalarını oluştur
@@ -228,7 +228,7 @@ def main():
     if args.output_format in ['csv', 'both']:
         csv_path = output_dir / f"weekly_timeline_{timestamp}.csv"
         write_weekly_csv(weekly_data, str(csv_path))
-        print(f"\n📊 CSV raporu kaydedildi: {csv_path}")
+        print(f"\n[STATS] CSV raporu kaydedildi: {csv_path}")
     
     if args.output_format in ['md', 'both']:
         md_path = output_dir / f"weekly_timeline_{timestamp}.md"
@@ -244,7 +244,7 @@ def main():
             if record['firma_adi'] != "—":
                 firms.add(record['firma_adi'])
     
-    print(f"\n📋 Haftalık Analiz Tamamlandı:")
+    print(f"\n[STEP] Haftalık Analiz Tamamlandı:")
     print(f"   • Toplam hafta sayısı: {total_weeks}")
     print(f"   • Toplam ziyaret sayısı: {total_visits}")
     print(f"   • Benzersiz firma sayısı: {len(firms)}")

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     print("• Yaklaşık Sipariş Tutarı:", get_amt("yaklasik_siparis_tutari"))
 
     # DEBUG İÇİN GENEL YORUM GÖSTER
-    print("\n🔍 DEBUG: Genel Yorum HAM İÇERİK:")
+    print("\n[DEBUG] DEBUG: Genel Yorum HAM İÇERİK:")
     print("=" * 80)
     print(kv.get("genel_yorum") or "—")
     print("=" * 80)
